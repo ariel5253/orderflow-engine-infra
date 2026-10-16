@@ -1,9 +1,11 @@
 # The full stack, built from the sibling repositories cloned side by side (see README): PostgreSQL, the
 # API and the web client. Every value comes from .env when it exists, otherwise from the default after
-# ":-", which is the .env.example value, so a fresh clone starts without a .env.
+# ":-", which is the .env.example value, so a fresh clone starts without a .env. Every service restarts
+# when it exits and when the Docker daemon starts again, unless it was stopped by hand (unless-stopped).
 services:
   db:
     image: postgres:17
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-orderflow}
       POSTGRES_USER: ${DB_USER:-orderflow}
@@ -20,6 +22,7 @@ services:
   api:
     build:
       context: ../orderflow-engine-api
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -47,6 +50,7 @@ services:
   web:
     build:
       context: ../orderflow-engine-web
+    restart: unless-stopped
     depends_on:
       - api
     environment:

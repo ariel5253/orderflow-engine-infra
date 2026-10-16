@@ -6,7 +6,7 @@ The full Orderflow Engine stack with Docker Compose (the database, the API and t
 
 ## Status
 
-Built by task T-01 of the task plan (`spec/TASKS.md` in the `orderflow-engine-docs` repository): `compose.yaml` starts the database and the API, and `scripts/test-all` runs every check of the workspace. T-17 adds the web client to the stack and its tests to `test-all`.
+Built by task T-01 of the task plan (`spec/TASKS.md` in the `orderflow-engine-docs` repository): `compose.yaml` starts the database and the API, and `scripts/test-all` runs every check of the workspace. T-17 adds the web client to the stack and its tests to `test-all`. T-19 makes Docker restart the stack.
 
 ## Clone layout
 
@@ -40,6 +40,8 @@ docker compose up --build
 ```
 
 Compose builds the API image from `../orderflow-engine-api` and the web image from `../orderflow-engine-web`, and starts PostgreSQL first. The API starts once the database is healthy, and the web client starts after the API. Open the client at `http://localhost:8081`. Its nginx serves the client and forwards `/api/` to the API on the compose network (`API_UPSTREAM` follows `API_PORT`), so the browser sees one origin and the API needs no CORS. API health: `http://localhost:8080/actuator/health`, on the API port only, since the client's origin does not forward `/actuator`. `docker compose down` stops the stack, and `docker compose down -v` also deletes the database volume.
+
+Every service has `restart: unless-stopped`: Docker starts a service again when it exits, and starts the stack again when the Docker daemon starts (after a reboot, for example). A service stopped by hand, with `docker compose stop` or `docker compose down`, stays stopped.
 
 Configuration comes from environment variables. `.env.example` lists every key with a comment, and its values are the defaults, so the stack starts without a `.env`. Copy it to `.env` only to change a value. For example, `API_PORT` moves the API port inside the container and on the host, and `WEB_PORT` moves the client's port on the host. The stacks of `orderflow-engine-api` and `orderflow-engine-web` publish the same ports, so run one stack at a time or give one of them another `API_PORT` or `WEB_PORT`.
 
