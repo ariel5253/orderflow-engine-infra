@@ -2,11 +2,11 @@
 
 [English](README.md)
 
-El stack completo de Orderflow Engine con Docker Compose (la base de datos y la API, construidas desde los repositorios hermanos), y el comando de pruebas del espacio de trabajo (`scripts/test-all`) que ejecuta juntas las pruebas de la API, la verificación de la documentación y la verificación de integridad.
+El stack completo de Orderflow Engine con Docker Compose (la base de datos, la API y el cliente web, construidos desde los repositorios hermanos), y el comando de pruebas del espacio de trabajo (`scripts/test-all`) que ejecuta juntas las pruebas de la API, las pruebas web, la verificación de la documentación y la verificación de integridad.
 
 ## Estado
 
-Construido en la tarea T-01 del plan de tareas (`spec/TASKS.md` del repositorio `orderflow-engine-docs`): `compose.yaml` levanta la base de datos y la API, y `scripts/test-all` ejecuta todas las verificaciones del espacio de trabajo. La pantalla web se suma al stack, y sus pruebas a `test-all`, en T-17.
+Construido en la tarea T-01 del plan de tareas (`spec/TASKS.md` del repositorio `orderflow-engine-docs`): `compose.yaml` levanta la base de datos y la API, y `scripts/test-all` ejecuta todas las verificaciones del espacio de trabajo. T-17 suma el cliente web al stack y sus pruebas a `test-all`.
 
 ## Estructura de clonado
 
@@ -22,15 +22,15 @@ workspace/
 └── orderflow-engine-app/
 ```
 
-`docker compose` solo necesita `orderflow-engine-api` junto a este repositorio. `test-all` necesita los seis, porque la verificación de la documentación lee todos los repositorios. `orderflow-engine-api` también se ejecuta solo, con su propio `compose.yaml`, y `orderflow-engine-web` tendrá el suyo en T-17. Las claves de configuración están en `.env.example`. `.env` nunca se versiona.
+`docker compose` solo necesita `orderflow-engine-api` y `orderflow-engine-web` junto a este repositorio. `test-all` necesita los seis, porque la verificación de la documentación lee todos los repositorios. `orderflow-engine-api` y `orderflow-engine-web` también se ejecutan solos, cada uno con su propio `compose.yaml`. Las claves de configuración están en `.env.example`. `.env` nunca se versiona.
 
 ## Cómo ejecutarlo
 
 | Requisito | Versión |
 |-----------|---------|
-| Docker | en ejecución, para el stack y para las pruebas de la API (Testcontainers) |
+| Docker | en ejecución, para el stack, las pruebas de la API (Testcontainers) y las pruebas web (un contenedor) |
 | JDK | 21, para `test-all` |
-| Node | 18 o posterior, para `test-all` |
+| Node | 18 o posterior, para las verificaciones de documentación e integridad de `test-all`. Las pruebas web traen su propio Node en su contenedor |
 | PowerShell | 7 (`pwsh`), solo para `test-all.ps1` en Windows |
 
 Levanta el stack completo desde este repositorio, con los hermanos clonados como se muestra arriba:
@@ -39,9 +39,9 @@ Levanta el stack completo desde este repositorio, con los hermanos clonados como
 docker compose up --build
 ```
 
-Compose construye la imagen de la API desde `../orderflow-engine-api` y levanta primero PostgreSQL. La API arranca cuando la base de datos está sana. Salud: `http://localhost:8080/actuator/health`. `docker compose down` detiene el stack, y `docker compose down -v` además borra el volumen de la base de datos.
+Compose construye la imagen de la API desde `../orderflow-engine-api` y la imagen web desde `../orderflow-engine-web`, y levanta primero PostgreSQL. La API arranca cuando la base de datos está sana, y el cliente web arranca después de la API. Abre el cliente en `http://localhost:8081`. Su nginx sirve el cliente y reenvía `/api/` a la API por la red de compose (`API_UPSTREAM` sigue a `API_PORT`), así que el navegador ve un solo origen y la API no necesita CORS. Salud de la API: `http://localhost:8080/actuator/health`, solo en el puerto de la API, porque el origen del cliente no reenvía `/actuator`. `docker compose down` detiene el stack, y `docker compose down -v` además borra el volumen de la base de datos.
 
-La configuración viene de variables de entorno. `.env.example` lista cada clave con un comentario, y sus valores son los predeterminados, así que el stack arranca sin un `.env`. Cópialo a `.env` solo para cambiar un valor. Por ejemplo, `API_PORT` mueve el puerto de la API dentro del contenedor y en el host. El stack de `orderflow-engine-api` publica el mismo puerto, así que ejecuta un stack a la vez o dale a uno de ellos otro `API_PORT`.
+La configuración viene de variables de entorno. `.env.example` lista cada clave con un comentario, y sus valores son los predeterminados, así que el stack arranca sin un `.env`. Cópialo a `.env` solo para cambiar un valor. Por ejemplo, `API_PORT` mueve el puerto de la API dentro del contenedor y en el host, y `WEB_PORT` mueve el puerto del cliente en el host. Los stacks de `orderflow-engine-api` y `orderflow-engine-web` publican los mismos puertos, así que ejecuta un stack a la vez o dale a uno de ellos otro `API_PORT` u otro `WEB_PORT`.
 
 Ejecuta todas las pruebas del espacio de trabajo desde este repositorio, con bash (Linux, macOS, Git Bash):
 
@@ -58,10 +58,11 @@ pwsh -File scripts/test-all.ps1
 `test-all` encuentra la raíz del espacio de trabajo dos niveles por encima del script, así que también se ejecuta desde cualquier otra carpeta usando su ruta. Ejecuta, en orden:
 
 1. `./mvnw verify` en `orderflow-engine-api` (`mvnw.cmd verify` en PowerShell)
-2. `node orderflow-engine-tools/docs-check/check-docs.mjs`
-3. `node orderflow-engine-tools/integrity/check-integrity.mjs`
+2. `docker build --target test .` en `orderflow-engine-web`: las pruebas web en la etapa de pruebas de su `Dockerfile` (la verificación de texto literal y luego cada spec en Chromium sin interfaz), así que el host no necesita Node para ellas. Un spec que falla hace fallar la construcción
+3. `node orderflow-engine-tools/docs-check/check-docs.mjs`
+4. `node orderflow-engine-tools/integrity/check-integrity.mjs`
 
-Se detiene en el primer fallo con `test-all: FAIL (<step>, exit code <n>)` y ese código de salida. Cuando todos los pasos pasan, termina con `test-all: OK (API verify, documentation check, integrity check)`.
+Se detiene en el primer fallo con `test-all: FAIL (<step>, exit code <n>)` y ese código de salida. Cuando todos los pasos pasan, termina con `test-all: OK (API verify, web tests, documentation check, integrity check)`.
 
 ## Documentación
 
