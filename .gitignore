@@ -6,3 +6,8 @@ Thumbs.db
 
 # Local secrets: only .env.example is versioned
 .env
+
+# The end-to-end suite, when it runs on the host
+node_modules/
+test-results/
+playwright-report/
