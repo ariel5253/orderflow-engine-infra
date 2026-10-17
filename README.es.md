@@ -6,7 +6,7 @@ El stack completo de Orderflow Engine con Docker Compose (la base de datos, la A
 
 ## Estado
 
-Construido en la tarea T-01 del plan de tareas (`spec/TASKS.md` del repositorio `orderflow-engine-docs`): `compose.yaml` levanta la base de datos y la API, y `scripts/test-all` ejecuta todas las verificaciones del espacio de trabajo. T-17 suma el cliente web al stack y sus pruebas a `test-all`.
+Construido en la tarea T-01 del plan de tareas (`spec/TASKS.md` del repositorio `orderflow-engine-docs`): `compose.yaml` levanta la base de datos y la API, y `scripts/test-all` ejecuta todas las verificaciones del espacio de trabajo. T-17 suma el cliente web al stack y sus pruebas a `test-all`. T-19 hace que Docker reinicie el stack.
 
 ## Estructura de clonado
 
@@ -40,6 +40,8 @@ docker compose up --build
 ```
 
 Compose construye la imagen de la API desde `../orderflow-engine-api` y la imagen web desde `../orderflow-engine-web`, y levanta primero PostgreSQL. La API arranca cuando la base de datos está sana, y el cliente web arranca después de la API. Abre el cliente en `http://localhost:8081`. Su nginx sirve el cliente y reenvía `/api/` a la API por la red de compose (`API_UPSTREAM` sigue a `API_PORT`), así que el navegador ve un solo origen y la API no necesita CORS. Salud de la API: `http://localhost:8080/actuator/health`, solo en el puerto de la API, porque el origen del cliente no reenvía `/actuator`. `docker compose down` detiene el stack, y `docker compose down -v` además borra el volumen de la base de datos.
+
+Cada servicio tiene `restart: unless-stopped`: Docker vuelve a iniciar un servicio cuando termina, y vuelve a levantar el stack cuando arranca el daemon de Docker (por ejemplo, tras reiniciar el equipo). Un servicio detenido a mano, con `docker compose stop` o `docker compose down`, sigue detenido.
 
 La configuración viene de variables de entorno. `.env.example` lista cada clave con un comentario, y sus valores son los predeterminados, así que el stack arranca sin un `.env`. Cópialo a `.env` solo para cambiar un valor. Por ejemplo, `API_PORT` mueve el puerto de la API dentro del contenedor y en el host, y `WEB_PORT` mueve el puerto del cliente en el host. Los stacks de `orderflow-engine-api` y `orderflow-engine-web` publican los mismos puertos, así que ejecuta un stack a la vez o dale a uno de ellos otro `API_PORT` u otro `WEB_PORT`.
 
