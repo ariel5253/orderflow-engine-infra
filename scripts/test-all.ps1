@@ -1,6 +1,7 @@
-# The workspace test command. It runs, in order, the API build and tests, the documentation check and
-# the integrity check, and stops at the first failure. The workspace root is two levels above this
-# script, so the repositories must be cloned side by side (see README).
+# The workspace test command. It runs, in order, the API build and tests, the web tests in their
+# container, the documentation check and the integrity check, and stops at the first failure. The
+# workspace root is two levels above this script, so the repositories must be cloned side by side (see
+# README).
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -34,7 +35,9 @@ function Invoke-Step {
 }
 
 Invoke-Step -Name 'API verify' -Directory 'orderflow-engine-api' -Command { .\mvnw.cmd verify }
+# The test stage of the web Dockerfile runs the specs in headless Chromium, so the host needs no Node for them.
+Invoke-Step -Name 'web tests' -Directory 'orderflow-engine-web' -Command { docker build --target test . }
 Invoke-Step -Name 'documentation check' -Directory '.' -Command { node orderflow-engine-tools/docs-check/check-docs.mjs }
 Invoke-Step -Name 'integrity check' -Directory '.' -Command { node orderflow-engine-tools/integrity/check-integrity.mjs }
 
-Write-Host 'test-all: OK (API verify, documentation check, integrity check)'
+Write-Host 'test-all: OK (API verify, web tests, documentation check, integrity check)'

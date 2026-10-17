@@ -2,11 +2,11 @@
 
 [Español](README.es.md)
 
-The full Orderflow Engine stack with Docker Compose (the database and the API, built from the sibling repositories), plus the workspace test command (`scripts/test-all`) that runs the API tests, the documentation check and the integrity check together.
+The full Orderflow Engine stack with Docker Compose (the database, the API and the web client, built from the sibling repositories), plus the workspace test command (`scripts/test-all`) that runs the API tests, the web tests, the documentation check and the integrity check together.
 
 ## Status
 
-Built by task T-01 of the task plan (`spec/TASKS.md` in the `orderflow-engine-docs` repository): `compose.yaml` starts the database and the API, and `scripts/test-all` runs every check of the workspace. The web screen joins the stack, and its tests join `test-all`, in T-17.
+Built by task T-01 of the task plan (`spec/TASKS.md` in the `orderflow-engine-docs` repository): `compose.yaml` starts the database and the API, and `scripts/test-all` runs every check of the workspace. T-17 adds the web client to the stack and its tests to `test-all`.
 
 ## Clone layout
 
@@ -22,15 +22,15 @@ workspace/
 └── orderflow-engine-app/
 ```
 
-`docker compose` needs only `orderflow-engine-api` beside this repository. `test-all` needs all six, because the documentation check reads every repository. `orderflow-engine-api` also runs alone with its own `compose.yaml`, and `orderflow-engine-web` gets its own in T-17. Configuration keys are listed in `.env.example`. `.env` is never committed.
+`docker compose` needs only `orderflow-engine-api` and `orderflow-engine-web` beside this repository. `test-all` needs all six, because the documentation check reads every repository. `orderflow-engine-api` and `orderflow-engine-web` also run alone, each with its own `compose.yaml`. Configuration keys are listed in `.env.example`. `.env` is never committed.
 
 ## How to run
 
 | Need | Version |
 |------|---------|
-| Docker | running, for the stack and for the API tests (Testcontainers) |
+| Docker | running, for the stack, the API tests (Testcontainers) and the web tests (a container) |
 | JDK | 21, for `test-all` |
-| Node | 18 or later, for `test-all` |
+| Node | 18 or later, for the documentation and integrity checks of `test-all`. The web tests bring their own Node in their container |
 | PowerShell | 7 (`pwsh`), only for `test-all.ps1` on Windows |
 
 Start the full stack from this repository, with the siblings cloned as shown above:
@@ -39,9 +39,9 @@ Start the full stack from this repository, with the siblings cloned as shown abo
 docker compose up --build
 ```
 
-Compose builds the API image from `../orderflow-engine-api` and starts PostgreSQL first. The API starts once the database is healthy. Health: `http://localhost:8080/actuator/health`. `docker compose down` stops the stack, and `docker compose down -v` also deletes the database volume.
+Compose builds the API image from `../orderflow-engine-api` and the web image from `../orderflow-engine-web`, and starts PostgreSQL first. The API starts once the database is healthy, and the web client starts after the API. Open the client at `http://localhost:8081`. Its nginx serves the client and forwards `/api/` to the API on the compose network (`API_UPSTREAM` follows `API_PORT`), so the browser sees one origin and the API needs no CORS. API health: `http://localhost:8080/actuator/health`, on the API port only, since the client's origin does not forward `/actuator`. `docker compose down` stops the stack, and `docker compose down -v` also deletes the database volume.
 
-Configuration comes from environment variables. `.env.example` lists every key with a comment, and its values are the defaults, so the stack starts without a `.env`. Copy it to `.env` only to change a value. For example, `API_PORT` moves the API port inside the container and on the host. The stack of `orderflow-engine-api` publishes the same port, so run one stack at a time or give one of them another `API_PORT`.
+Configuration comes from environment variables. `.env.example` lists every key with a comment, and its values are the defaults, so the stack starts without a `.env`. Copy it to `.env` only to change a value. For example, `API_PORT` moves the API port inside the container and on the host, and `WEB_PORT` moves the client's port on the host. The stacks of `orderflow-engine-api` and `orderflow-engine-web` publish the same ports, so run one stack at a time or give one of them another `API_PORT` or `WEB_PORT`.
 
 Run every test of the workspace from this repository, with bash (Linux, macOS, Git Bash):
 
@@ -58,10 +58,11 @@ pwsh -File scripts/test-all.ps1
 `test-all` finds the workspace root two levels above the script, so it also runs from any other folder by its path. It runs, in order:
 
 1. `./mvnw verify` in `orderflow-engine-api` (`mvnw.cmd verify` in PowerShell)
-2. `node orderflow-engine-tools/docs-check/check-docs.mjs`
-3. `node orderflow-engine-tools/integrity/check-integrity.mjs`
+2. `docker build --target test .` in `orderflow-engine-web`: the web tests in the test stage of its `Dockerfile` (the literal-text check, then every spec in headless Chromium), so the host needs no Node for them. A failing spec fails the build
+3. `node orderflow-engine-tools/docs-check/check-docs.mjs`
+4. `node orderflow-engine-tools/integrity/check-integrity.mjs`
 
-It stops at the first failure with `test-all: FAIL (<step>, exit code <n>)` and that exit code. When every step passes, it ends with `test-all: OK (API verify, documentation check, integrity check)`.
+It stops at the first failure with `test-all: FAIL (<step>, exit code <n>)` and that exit code. When every step passes, it ends with `test-all: OK (API verify, web tests, documentation check, integrity check)`.
 
 ## Documentation
 
