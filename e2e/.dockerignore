@@ -1,0 +1,7 @@
+# Only the suite and its manifests reach the build context: never a local .env, git metadata, or the
+# dependencies and reports of a run on the host
+.env
+.git
+node_modules/
+test-results/
+playwright-report/
